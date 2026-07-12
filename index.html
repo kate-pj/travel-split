@@ -201,7 +201,7 @@ select {
 </div>
 <div id="rate-editor">
   <label>1 MR =</label>
-  <input type="number" id="rate-input" step="0.001" min="0.1" max="5" value="1.088">
+  <input type="number" id="rate-input" step="0.001" min="0.1" max="5" value="1.93">
   <label>HKD</label>
   <button id="rate-ok" onclick="applyRate()">確認</button>
 </div>
@@ -240,7 +240,7 @@ select {
         <label>貨幣</label>
         <select id="currency">
           <option value="HKD">💴 港幣 HKD</option>
-          <option value="MR">🇨🇳 人民幣 MR</option>
+          <option value="MR">MR 馬幣 MR</option>
         </select>
       </div>
     </div>
@@ -282,7 +282,7 @@ select {
 var API = 'https://script.google.com/macros/s/AKfycbzMfcBcc2EwlqUQczFMhHse8qLuxopYR5JkA4k06sfG6ypg9zM08QpQUUQgD-grugsl6w/exec';
 var CAT_ICON = { '食':'🍜', '交通':'🚌', '住宿':'🏨', '其他':'📦' };
 var exps = [];
-var rate = 1.088;
+var rate = 1.93;
 
 function fmt(n) { return 'HKD ' + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
 function toHKD(a, c) { return c === 'MR' ? a * rate : a; }
