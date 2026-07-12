@@ -196,11 +196,11 @@ select {
   </div>
   <div style="display:flex;gap:6px;align-items:center">
     <button id="refresh-btn" onclick="loadData()">↻ 刷新</button>
-    <div class="rate-pill" onclick="toggleRate()">CNY→HKD: <span id="rdis">1.0880</span> ✎</div>
+    <div class="rate-pill" onclick="toggleRate()">MR→HKD: <span id="rdis">1.93</span> ✎</div>
   </div>
 </div>
 <div id="rate-editor">
-  <label>1 CNY =</label>
+  <label>1 MR =</label>
   <input type="number" id="rate-input" step="0.001" min="0.1" max="5" value="1.088">
   <label>HKD</label>
   <button id="rate-ok" onclick="applyRate()">確認</button>
@@ -240,7 +240,7 @@ select {
         <label>貨幣</label>
         <select id="currency">
           <option value="HKD">💴 港幣 HKD</option>
-          <option value="CNY">🇨🇳 人民幣 CNY</option>
+          <option value="MR">🇨🇳 人民幣 MR</option>
         </select>
       </div>
     </div>
@@ -285,7 +285,7 @@ var exps = [];
 var rate = 1.088;
 
 function fmt(n) { return 'HKD ' + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
-function toHKD(a, c) { return c === 'CNY' ? a * rate : a; }
+function toHKD(a, c) { return c === 'MR' ? a * rate : a; }
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function nowStr() {
   var d = new Date();
@@ -410,8 +410,8 @@ function render() {
     var hkd = toHKD(parseFloat(e.amount), e.currency);
     var tCls = e.payer === 'Patrick' ? 'tp' : 'tk';
     var icon = CAT_ICON[e.category] || '📦';
-    var origLine = e.currency === 'CNY'
-      ? '<div class="exp-orig">CNY ' + parseFloat(e.amount).toFixed(2) + ' → ' + fmt(hkd) + '</div>' : '';
+    var origLine = e.currency === 'MR'
+      ? '<div class="exp-orig">MR ' + parseFloat(e.amount).toFixed(2) + ' → ' + fmt(hkd) + '</div>' : '';
     var dispAmt = e.currency === 'HKD' ? fmt(parseFloat(e.amount)) : fmt(hkd);
     html += '<li class="exp-item">'
       + '<div class="exp-cat-badge">' + icon + '</div>'
@@ -479,7 +479,7 @@ function recalc() {
   for (var j = 0; j < exps.length; j++) {
     var e2 = exps[j];
     var h2 = toHKD(parseFloat(e2.amount), e2.currency);
-    var orig2 = e2.currency === 'CNY' ? ' (CNY ' + parseFloat(e2.amount).toFixed(2) + ')' : '';
+    var orig2 = e2.currency === 'MR' ? ' (MR ' + parseFloat(e2.amount).toFixed(2) + ')' : '';
     rows += '<tr><td>' + (CAT_ICON[e2.category]||'📦') + ' ' + esc(e2.desc) + '</td>'
       + '<td><span class="tag '+(e2.payer==='Patrick'?'tp':'tk')+'">' + e2.payer + '</span></td>'
       + '<td>' + fmt(h2) + orig2 + '</td></tr>';
