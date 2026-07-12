@@ -124,6 +124,7 @@ select {
 .tp { background: #dcfce7; color: var(--patrick); }
 .tk { background: #ffedd5; color: var(--kate); }
 .cat-tag { font-size: 0.62rem; color: var(--muted); background: var(--cream); padding: 1px 6px; border-radius: 20px; font-weight: 600; }
+.date-tag { font-size: 0.62rem; color: var(--muted); font-weight: 600; }
 .exp-right { text-align: right; flex-shrink: 0; }
 .exp-amount { font-weight: 800; font-size: 0.93rem; }
 .exp-orig { font-size: 0.68rem; color: var(--muted); }
@@ -244,6 +245,10 @@ select {
         </select>
       </div>
     </div>
+    <div class="fg">
+      <label>消費日期</label>
+      <input type="date" id="expdate">
+    </div>
     <button class="add-btn" id="add-btn" onclick="addExp()">＋ 加入支出</button>
   </div>
 
@@ -290,6 +295,18 @@ function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').re
 function nowStr() {
   var d = new Date();
   return d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0');
+}
+function todayStr() {
+  var d = new Date();
+  var m = (d.getMonth()+1).toString().padStart(2,'0');
+  var day = d.getDate().toString().padStart(2,'0');
+  return d.getFullYear() + '-' + m + '-' + day;
+}
+function fmtDateDisplay(iso) {
+  if (!iso) return '';
+  var p = iso.split('-');
+  if (p.length !== 3) return iso;
+  return p[0] + '年' + p[1] + '月' + p[2] + '日';
 }
 function setStatus(type, msg) {
   document.getElementById('sdot').className = 'dot ' + type;
@@ -345,12 +362,14 @@ function addExp() {
   var cur  = document.getElementById('currency').value;
   var pay  = document.getElementById('payer').value;
   var cat  = document.getElementById('category').value;
+  var edate = document.getElementById('expdate').value || todayStr();
   if (!desc) { alert('請填寫項目名稱'); return; }
   if (!amt || amt <= 0) { alert('請填寫有效金額'); return; }
 
   var newExp = {
     id: Date.now(), desc: desc, category: cat,
     payer: pay, amount: amt, currency: cur,
+    expenseDate: edate,
     timestamp: new Date().toISOString()
   };
 
@@ -366,7 +385,7 @@ function addExp() {
 
   fetch(API, {
     method: 'POST',
-    body: JSON.stringify({ action: 'add', id: newExp.id, desc: newExp.desc, category: newExp.category, payer: newExp.payer, amount: newExp.amount, currency: newExp.currency, timestamp: newExp.timestamp })
+    body: JSON.stringify({ action: 'add', id: newExp.id, desc: newExp.desc, category: newExp.category, payer: newExp.payer, amount: newExp.amount, currency: newExp.currency, expenseDate: newExp.expenseDate, timestamp: newExp.timestamp })
   })
   .then(function(r) { return r.json(); })
   .then(function(data) {
@@ -413,6 +432,7 @@ function render() {
     var origLine = e.currency === 'MR'
       ? '<div class="exp-orig">MR ' + parseFloat(e.amount).toFixed(2) + ' → ' + fmt(hkd) + '</div>' : '';
     var dispAmt = e.currency === 'HKD' ? fmt(parseFloat(e.amount)) : fmt(hkd);
+    var dateTag = e.expenseDate ? '<span class="date-tag">📅 ' + fmtDateDisplay(e.expenseDate) + '</span>' : '';
     html += '<li class="exp-item">'
       + '<div class="exp-cat-badge">' + icon + '</div>'
       + '<div class="exp-body">'
@@ -420,6 +440,7 @@ function render() {
       + '<div class="exp-meta">'
       + '<span class="tag ' + tCls + '">' + e.payer + '</span>'
       + '<span class="cat-tag">' + esc(e.category) + '</span>'
+      + dateTag
       + '</div></div>'
       + '<div class="exp-right"><div class="exp-amount">' + dispAmt + '</div>' + origLine + '</div>'
       + '<button class="del-btn" onclick="delExp(' + e.id + ')">✕</button>'
@@ -480,7 +501,8 @@ function recalc() {
     var e2 = exps[j];
     var h2 = toHKD(parseFloat(e2.amount), e2.currency);
     var orig2 = e2.currency === 'MR' ? ' (MR ' + parseFloat(e2.amount).toFixed(2) + ')' : '';
-    rows += '<tr><td>' + (CAT_ICON[e2.category]||'📦') + ' ' + esc(e2.desc) + '</td>'
+    var dcol2 = e2.expenseDate ? fmtDateDisplay(e2.expenseDate) : '';
+    rows += '<tr><td>' + (CAT_ICON[e2.category]||'📦') + ' ' + esc(e2.desc) + (dcol2 ? ' <span style="color:var(--muted);font-weight:400">(' + dcol2 + ')</span>' : '') + '</td>'
       + '<td><span class="tag '+(e2.payer==='Patrick'?'tp':'tk')+'">' + e2.payer + '</span></td>'
       + '<td>' + fmt(h2) + orig2 + '</td></tr>';
   }
@@ -495,6 +517,7 @@ function toggleBk() {
 }
 
 // Init
+document.getElementById('expdate').value = todayStr();
 loadData();
 setInterval(loadData, 10000);
 </script>
