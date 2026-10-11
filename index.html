@@ -347,6 +347,17 @@ select {
     <div class="bk" id="bk"></div>
   </div>
 
+  <div class="card" id="apicard">
+    <div class="card-title">資料同步設定</div>
+    <div class="hint" id="api-hint" style="margin:-8px 0 12px"></div>
+    <div class="fg">
+      <label>Apps Script Web app 網址</label>
+      <input type="url" id="api-url" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off" spellcheck="false">
+    </div>
+    <div class="hint" style="margin:-4px 0 10px">呢條網址等同你個賬本嘅鎖匙，所以唔會寫入網站原始碼，亦唔會分享出去。每部裝置輸入一次就會記住。</div>
+    <button class="add-btn" onclick="saveApi()">儲存同步網址</button>
+  </div>
+
   <div class="card" id="fpscard">
     <div class="card-title">FPS 收款資料</div>
     <div class="hint" style="margin:-8px 0 12px">填好之後，結算區會自動生成「俾對方」嘅 FPS 收款碼。資料只存喺你部手機／電腦（localStorage），唔會上傳去 Google Sheet。</div>
@@ -388,7 +399,11 @@ var QRCode;!function(){function a(a){this.mode=c.MODE_8BIT_BYTE,this.data=a,this
 </script>
 
 <script>
-var API = 'https://script.google.com/macros/s/AKfycbzMfcBcc2EwlqUQczFMhHse8qLuxopYR5JkA4k06sfG6ypg9zM08QpQUUQgD-grugsl6w/exec';
+/* 同步網址唔再寫死喺呢度。
+   呢個頁面係公開嘅，寫死等於把個賬本嘅存取權公開俾所有人。
+   改為每部裝置自己輸入一次，存喺 localStorage。 */
+var API = '';
+var API_RE = /^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec$/;
 var CAT_ICON = { '食':'🍜', '交通':'🚌', '住宿':'🏨', '其他':'📦' };
 
 /* 貨幣清單：代碼 / 中文名 / 旗 */
@@ -582,7 +597,7 @@ function fetchRates(cb) {
     .then(function(d) {
       if (!d || !d.rates) throw new Error('bad');
       applyFetched(d.rates, 'open.er-api.com', (d.time_last_update_utc || '').slice(5, 16));
-      setStatus('ok', '匯率已更新 · ' + nowStr());
+      setStatus(apiReady() ? 'ok' : 'err', apiReady() ? ('匯率已更新 · ' + nowStr()) : '未設定同步網址');
       if (cb) cb(true);
     })
     .catch(function() {
@@ -593,7 +608,7 @@ function fetchRates(cb) {
           var up = {};
           for (var k in d.hkd) up[k.toUpperCase()] = d.hkd[k];
           applyFetched(up, 'currency-api', d.date || '');
-          setStatus('ok', '匯率已更新 · ' + nowStr());
+          setStatus(apiReady() ? 'ok' : 'err', apiReady() ? ('匯率已更新 · ' + nowStr()) : '未設定同步網址');
           if (cb) cb(true);
         })
         .catch(function() {
@@ -632,6 +647,7 @@ function applyRate() {
   document.getElementById('rate-editor').style.display = 'none';
   updateRatePill();
   render();
+  if (!apiReady()) { setStatus('err', '未設定同步網址（匯率只套用咗喺本機）'); return; }
   setStatus('spin', '儲存匯率…');
   fetch(API, { method: 'POST', body: JSON.stringify({ action: 'setRate', rate: v, currency: tripCur }) })
     .then(function(r) { return r.json(); })
@@ -644,6 +660,43 @@ function useOnlineRate() {
   updateRatePill();
   render();
   fetchRates();
+}
+
+/* ---------- 同步網址 ---------- */
+try { API = lsGet('apiUrl') || ''; } catch (e) { API = ''; }
+
+function apiReady() { return API_RE.test(API); }
+
+function loadApiForm() {
+  document.getElementById('api-url').value = API;
+  updateApiHint();
+}
+function updateApiHint() {
+  var h = document.getElementById('api-hint');
+  if (apiReady()) {
+    h.innerHTML = '✅ 已設定。換咗新 deployment 就喺上面貼新網址再儲存。';
+  } else {
+    h.innerHTML = '<b>⚠ 未設定同步網址</b>，支出記錄唔會同步。喺 Apps Script 撳 Deploy → Manage deployments 抄低個 Web app 網址貼落上面。';
+  }
+}
+function saveApi() {
+  var v = document.getElementById('api-url').value.trim();
+  if (!API_RE.test(v)) {
+    alert('網址格式唔啱。\n\n必須係 Apps Script 嘅 Web app 網址，樣子係：\nhttps://script.google.com/macros/s/XXXXXXXX/exec\n\n（要以 /exec 結尾，唔係 /dev）');
+    return;
+  }
+  API = v;
+  lsSet('apiUrl', API);
+  updateApiHint();
+  startSync();
+}
+
+/* 定時同步：只喺有網址嘅時候行，避免每 10 秒報一次錯 */
+var syncTimer = null;
+function startSync() {
+  if (!apiReady()) return;
+  loadData();
+  if (!syncTimer) syncTimer = setInterval(loadData, 10000);
 }
 
 /* ---------- FPS 收款碼 ---------- */
@@ -767,6 +820,7 @@ function renderFpsQR(payee, amount) {
 
 /* ---------- 資料 ---------- */
 function loadData() {
+  if (!apiReady()) { setStatus('err', '未設定同步網址'); render(); return; }
   setStatus('spin', '同步中…');
   fetch(API + '?action=load')
     .then(function(r) { return r.json(); })
@@ -792,6 +846,7 @@ function addExp() {
   var pay  = document.getElementById('payer').value;
   var cat  = document.getElementById('category').value;
   var edate = document.getElementById('expdate').value || todayStr();
+  if (!apiReady()) { alert('未設定同步網址，支出會存唔到。\n請去最底「資料同步設定」填好先。'); return; }
   if (!desc) { alert('請填寫項目名稱'); return; }
   if (!amt || amt <= 0) { alert('請填寫有效金額'); return; }
   if (cur !== 'HKD' && rateOf(cur) <= 0) {
@@ -834,6 +889,7 @@ function addExp() {
 }
 
 function delExp(id) {
+  if (!apiReady()) { alert('未設定同步網址，刪除唔會同步。'); return; }
   if (!confirm('確定刪除此項目？')) return;
   exps = exps.filter(function(e) { return String(e.id) !== String(id); });
   render();
@@ -960,13 +1016,20 @@ function toggleBk() {
 
 /* ---------- 初始化 ---------- */
 document.getElementById('expdate').value = todayStr();
+loadApiForm();
 loadFpsForm();
 buildCurSelect();
 updateRatePill();
 if (!tripCur) openCurModal();
 fetchRates();
-loadData();
-setInterval(loadData, 10000);
+if (apiReady()) {
+  startSync();
+} else {
+  /* 未設定就唔好每 10 秒 fetch 一次然後報錯，直接帶使用者去設定 */
+  setStatus('err', '未設定同步網址');
+  render();
+  document.getElementById('apicard').scrollIntoView({ block: 'center' });
+}
 setInterval(function() { fetchRates(); }, 30 * 60 * 1000);
 </script>
 </body>
