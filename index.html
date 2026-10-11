@@ -700,9 +700,15 @@ function fpsProxy(name) {
   return { tag: '03', value: '+852-' + d, label: '+852 ' + d };
 }
 
+/* EMVCo 嘅長度欄位係 byte 數，唔係 JS 嘅 UTF-16 字元數。
+   現時所有值都係純 ASCII 所以兩者相同，但非 ASCII 電郵會計短，令 QR 解唔到。 */
+function byteLen(s) {
+  if (typeof TextEncoder !== 'undefined') return new TextEncoder().encode(s).length;
+  return encodeURIComponent(s).replace(/%[0-9A-Fa-f]{2}/g, 'x').length;
+}
 function tlv(tag, val) {
   val = String(val);
-  return tag + String(val.length).padStart(2, '0') + val;
+  return tag + String(byteLen(val)).padStart(2, '0') + val;
 }
 function crc16ccitt(s) {
   var crc = 0xFFFF;
