@@ -1,4 +1,3 @@
-# travel-split
 # ✈️ 旅行分賬 travel-split
 
 兩個人旅行時嘅分賬 App。單一 HTML 檔案，用 Google Sheet 做後端，最後以港幣結算。
