@@ -474,12 +474,6 @@ function buildCurSelect() {
   if (tripCur) {
     html += '<option value="' + tripCur + '">' + CUR_FLAG[tripCur] + ' ' + CUR_NAME[tripCur] + ' ' + tripCur + '</option>';
   }
-  html += '<optgroup label="其他貨幣">';
-  for (var i = 0; i < CUR.length; i++) {
-    if (CUR[i][0] === tripCur) continue;
-    html += '<option value="' + CUR[i][0] + '">' + CUR[i][2] + ' ' + CUR[i][1] + ' ' + CUR[i][0] + '</option>';
-  }
-  html += '</optgroup>';
   sel.innerHTML = html;
   sel.value = tripCur || 'HKD';
   onCurPick();
