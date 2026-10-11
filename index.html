@@ -661,16 +661,29 @@ function saveFps() {
   alert('收款資料已儲存（只存喺本機）');
 }
 
-/* 把輸入正規化成 FPS proxy 值 */
+/* 把輸入正規化成 FPS proxy。
+   tag 26 入面每種識別碼有唔同子欄位：02 = FPS ID、03 = 手機、04 = 電郵。
+   手機格式必須係 +852-XXXXXXXX（有連字號）。
+   回傳 { tag, value, label } 或 { error } */
 function fpsProxy(name) {
   var o = FPS[name] || {}, v = String(o.id || '').trim();
-  if (!v) return '';
-  if (o.type === 'email') return v;
-  if (o.type === 'fpsid') return v.replace(/[^0-9]/g, '');
-  var d = v.replace(/[^0-9]/g, '');          // 手機
-  if (d.length === 8) return '+852' + d;
-  if (d.length === 11 && d.indexOf('852') === 0) return '+' + d;
-  return v.charAt(0) === '+' ? v : (d ? '+' + d : '');
+  if (!v) return { error: '未設定 ' + name + ' 嘅收款號碼' };
+
+  if (o.type === 'email') {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return { error: '電郵格式唔正確' };
+    return { tag: '04', value: v, label: v };
+  }
+
+  if (o.type === 'fpsid') {
+    var id = v.replace(/[^0-9]/g, '');
+    if (id.length < 7 || id.length > 9) return { error: 'FPS ID 應該係 7–9 位數字' };
+    return { tag: '02', value: id, label: 'FPS ID ' + id };
+  }
+
+  var d = v.replace(/[^0-9]/g, '');                    // 手機
+  if (d.length === 11 && d.indexOf('852') === 0) d = d.slice(3);
+  if (!/^[0-9]{8}$/.test(d)) return { error: '手機號碼應該係 8 位數字' };
+  return { tag: '03', value: '+852-' + d, label: '+852 ' + d };
 }
 
 function tlv(tag, val) {
@@ -689,7 +702,7 @@ function crc16ccitt(s) {
 }
 /* EMVCo Merchant-Presented Mode payload（香港 FPS：tag 26 / GUID hk.com.hkicl） */
 function buildFpsPayload(proxy, amount, payeeName) {
-  var acc = tlv('00', 'hk.com.hkicl') + tlv('02', proxy);
+  var acc = tlv('00', 'hk.com.hkicl') + tlv(proxy.tag, proxy.value);
   var p = '';
   p += tlv('00', '01');                          // payload format indicator
   p += tlv('01', amount > 0 ? '12' : '11');      // 12 = 有金額（動態）
@@ -708,16 +721,16 @@ function renderFpsQR(payee, amount) {
   var box = document.getElementById('fpsbox');
   if (!box) return;
   var proxy = fpsProxy(payee);
-  if (!proxy) {
+  if (proxy.error) {
     box.innerHTML = '<div class="fps-wrap">'
-      + '<div class="fps-miss">⚠ 未設定 ' + payee + ' 嘅 FPS 收款號碼</div>'
+      + '<div class="fps-miss">⚠ ' + esc(proxy.error) + '</div>'
       + '<div class="fps-sub">去下面「FPS 收款資料」填好，呢度就會自動出收款碼。</div></div>';
     return;
   }
   box.innerHTML = '<div class="fps-wrap">'
     + '<div class="fps-title">FPS 收款碼 · 收款人 ' + esc(payee) + '</div>'
     + '<div class="fps-qr" id="qrc"></div>'
-    + '<div class="fps-num">' + esc(proxy) + ' · ' + fmt(amount) + '</div>'
+    + '<div class="fps-num">' + esc(proxy.label) + ' · ' + fmt(amount) + '</div>'
     + '<div class="fps-sub">用銀行 App 嘅「掃一掃」付款。掃唔到就手動轉賬上面個號碼。<br>第一次用請先試小額（例如 HK$1）確認收得到。</div>'
     + '</div>';
   try {
