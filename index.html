@@ -223,6 +223,13 @@ select {
 .fps-num { font-size: 0.86rem; font-weight: 900; margin-top: 10px; letter-spacing: 0.3px; }
 .fps-sub { font-size: 0.66rem; color: var(--muted); margin-top: 5px; line-height: 1.6; }
 .fps-miss { font-size: 0.78rem; color: var(--red); font-weight: 800; }
+.fps-gen {
+  margin-top: 12px; width: 100%; padding: 11px; background: var(--accent);
+  color: #fff; border: none; border-radius: 11px; font-family: inherit;
+  font-size: 0.9rem; font-weight: 800; cursor: pointer;
+}
+.fps-gen:active { opacity: 0.85; }
+.fps-gen-note { font-size: 0.66rem; color: var(--muted); margin-top: 6px; line-height: 1.5; }
 
 .tog { font-size: 0.72rem; color: var(--muted); text-align: center; margin-top: 10px; display: block; cursor: pointer; }
 .bk { display: none; margin-top: 10px; background: var(--cream); border-radius: 9px; padding: 10px 12px; font-size: 0.76rem; }
@@ -360,7 +367,7 @@ select {
 
   <div class="card" id="fpscard">
     <div class="card-title">FPS 收款資料</div>
-    <div class="hint" style="margin:-8px 0 12px">填好之後，結算區會自動生成「俾對方」嘅 FPS 收款碼。資料只存喺你部手機／電腦（localStorage），唔會上傳去 Google Sheet。</div>
+    <div class="hint" style="margin:-8px 0 12px">填好之後，結算區會出現一個掣，撳咗先會產生「俾對方」嘅 FPS 收款碼。資料只存喺你部手機／電腦（localStorage），唔會上傳去 Google Sheet。</div>
     <div class="g2">
       <div class="fg">
         <label>Patrick 收款方式</label>
@@ -790,14 +797,34 @@ function buildFpsPayload(proxy, amount, payeeName) {
   return p + crc16ccitt(p);
 }
 
+/* 收款碼要使用者明確撳掣先產生 */
+var fpsPending = null;   // { payee, amount, key } — 現時結餘對應嘅收款資料
+var fpsShownFor = null;  // 已經產生咗收款碼嘅 key
+
+function renderFpsButton() {
+  var box = document.getElementById('fpsbox');
+  if (!box || !fpsPending) return;
+  box.innerHTML = '<button class="fps-gen" onclick="genFpsQR()">📱 產生 ' + esc(fpsPending.payee) + ' 嘅 FPS 收款碼</button>'
+    + '<div class="fps-gen-note">金額會寫入收款碼。結餘一有變動，收款碼會自動收起，要重新產生。</div>';
+}
+function genFpsQR() {
+  if (!fpsPending) return;
+  fpsShownFor = fpsPending.key;
+  renderFpsQR(fpsPending.payee, fpsPending.amount);
+}
+
 function renderFpsQR(payee, amount) {
   var box = document.getElementById('fpsbox');
   if (!box) return;
   var proxy = fpsProxy(payee);
   if (proxy.error) {
+    /* 唔好淨係留低一段錯誤訊息，否則個掣消失咗就冇得重試 */
+    fpsShownFor = null;
     box.innerHTML = '<div class="fps-wrap">'
       + '<div class="fps-miss">⚠ ' + esc(proxy.error) + '</div>'
-      + '<div class="fps-sub">去下面「FPS 收款資料」填好，呢度就會自動出收款碼。</div></div>';
+      + '<div class="fps-sub">去下面「FPS 收款資料」填好，再撳下面個掣。</div>'
+      + '<button class="fps-gen" onclick="genFpsQR()">🔄 再試一次</button>'
+      + '</div>';
     return;
   }
   box.innerHTML = '<div class="fps-wrap">'
@@ -976,20 +1003,36 @@ function recalc() {
   }
   document.getElementById('catbd').innerHTML = catHtml || '<div style="font-size:0.8rem;color:var(--muted);padding:4px 0">—</div>';
 
+  /* 每 10 秒同步一次就會行到呢度，但結餘通常冇變。
+     所以用 data-key 比對，冇變就唔重畫 —— 否則已經產生咗嘅收款碼
+     會每 10 秒閃一次，亦會無端端重新產生。 */
   var sbox = document.getElementById('sbox');
   if (Math.abs(diff) < 0.5) {
-    sbox.className = 'settle s-ok';
-    sbox.innerHTML = '<p>✅ 兩人已平賬，無需互相轉賬！</p>';
+    fpsPending = null;
+    fpsShownFor = null;
+    if (sbox.getAttribute('data-key') !== 'ok') {
+      sbox.className = 'settle s-ok';
+      sbox.innerHTML = '<p>✅ 兩人已平賬，無需互相轉賬！</p>';
+      sbox.setAttribute('data-key', 'ok');
+    }
   } else {
     var debtor = diff > 0 ? 'Kate' : 'Patrick';
     var creditor = diff > 0 ? 'Patrick' : 'Kate';
     var owed = Math.abs(diff) / 2;
-    sbox.className = 'settle s-owe';
-    sbox.innerHTML = '<div class="who">' + debtor + ' 需要付給 ' + creditor + '</div>'
-      + '<span class="amt">' + fmt(owed) + '</span>'
-      + '<div class="note">港幣結算</div>'
-      + '<div id="fpsbox"></div>';
-    renderFpsQR(creditor, owed);
+    var key = creditor + '|' + owed.toFixed(2);
+    fpsPending = { payee: creditor, amount: owed, key: key };
+    if (sbox.getAttribute('data-key') !== key) {
+      /* 結餘變咗：收起舊收款碼，要使用者重新撳掣，
+         避免顯示住一個金額已經唔啱嘅收款碼。 */
+      fpsShownFor = null;
+      sbox.className = 'settle s-owe';
+      sbox.innerHTML = '<div class="who">' + debtor + ' 需要付給 ' + creditor + '</div>'
+        + '<span class="amt">' + fmt(owed) + '</span>'
+        + '<div class="note">港幣結算</div>'
+        + '<div id="fpsbox"></div>';
+      sbox.setAttribute('data-key', key);
+      renderFpsButton();
+    }
   }
 
   var rows = '';
