@@ -50,25 +50,64 @@ header p  { font-size: 0.75rem; opacity: 0.5; margin-top: 2px; }
   cursor: pointer; white-space: nowrap;
 }
 #refresh-btn {
-  background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.1); border: none;
   border-radius: 20px; padding: 2px 10px; font-size: 0.72rem; color: rgba(250,248,243,0.8);
-  cursor: pointer; white-space: nowrap; font-family: inherit; border: none;
+  cursor: pointer; white-space: nowrap; font-family: inherit;
 }
 
 #rate-editor {
   background: #1c1917; padding: 10px 16px;
   display: none; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap;
 }
-#rate-editor label { color: rgba(250,248,243,0.6); font-size: 0.75rem; }
+#rate-editor label, #rate-editor .rl { color: rgba(250,248,243,0.6); font-size: 0.75rem; }
 #rate-input {
   background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.22);
   color: #fff; border-radius: 6px; padding: 4px 10px;
-  font-size: 0.88rem; width: 88px; font-family: inherit; text-align: center; outline: none;
+  font-size: 0.88rem; width: 96px; font-family: inherit; text-align: center; outline: none;
 }
-#rate-ok {
-  background: var(--accent); color: #fff; border: none;
-  border-radius: 6px; padding: 4px 14px; font-family: inherit;
-  font-size: 0.78rem; font-weight: 700; cursor: pointer;
+#rate-editor button {
+  border: none; border-radius: 6px; padding: 4px 12px; font-family: inherit;
+  font-size: 0.75rem; font-weight: 700; cursor: pointer;
+}
+#rate-ok { background: var(--accent); color: #fff; }
+.rate-alt { background: rgba(255,255,255,0.12); color: rgba(250,248,243,0.85); }
+#rate-src { width: 100%; text-align: center; font-size: 0.68rem; color: rgba(250,248,243,0.4); }
+
+/* 貨幣選擇彈窗 */
+#cur-modal {
+  position: fixed; inset: 0; background: rgba(28,25,23,0.55);
+  display: none; align-items: flex-end; justify-content: center; z-index: 50;
+}
+#cur-modal.open { display: flex; }
+.cm-box {
+  background: var(--surface); width: 100%; max-width: 560px;
+  border-radius: 18px 18px 0 0; padding: 18px 16px 14px;
+  max-height: 86vh; display: flex; flex-direction: column;
+}
+.cm-box h2 { font-size: 1.05rem; font-weight: 900; }
+.cm-box .sub { font-size: 0.76rem; color: var(--muted); margin: 4px 0 12px; line-height: 1.5; }
+#cm-search {
+  border: 1.5px solid var(--border); border-radius: 10px; padding: 10px 12px;
+  font-size: 0.93rem; font-family: inherit; width: 100%; outline: none;
+  background: var(--paper); color: var(--ink);
+}
+#cm-search:focus { border-color: var(--accent); background: #fff; }
+#cm-list { overflow-y: auto; margin-top: 10px; -webkit-overflow-scrolling: touch; }
+.cm-row {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 11px 8px; border: none; background: none; font-family: inherit;
+  border-bottom: 1px solid var(--border); cursor: pointer; text-align: left;
+}
+.cm-row:active { background: var(--cream); }
+.cm-row .fl { font-size: 1.25rem; width: 26px; text-align: center; }
+.cm-row .nm { flex: 1; font-size: 0.9rem; font-weight: 700; color: var(--ink); }
+.cm-row .cd { font-size: 0.72rem; font-weight: 800; color: var(--muted); letter-spacing: 0.5px; }
+.cm-row .rt { font-size: 0.68rem; color: var(--muted); margin-left: 6px; white-space: nowrap; }
+.cm-row.sel { background: #fffbeb; }
+.cm-close {
+  margin-top: 10px; width: 100%; padding: 11px; background: var(--cream);
+  border: none; border-radius: 11px; font-family: inherit; font-size: 0.88rem;
+  font-weight: 700; color: var(--muted); cursor: pointer;
 }
 
 main { max-width: 560px; margin: 0 auto; padding: 14px 13px 70px; }
@@ -97,6 +136,8 @@ select {
   background-repeat: no-repeat; background-position: right 11px center; padding-right: 30px;
 }
 .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.hint { font-size: 0.68rem; color: var(--muted); margin: -4px 0 10px; }
+.hint b { color: var(--accent); }
 
 .add-btn {
   width: 100%; padding: 12px; background: var(--ink); color: #fff;
@@ -128,6 +169,7 @@ select {
 .exp-right { text-align: right; flex-shrink: 0; }
 .exp-amount { font-weight: 800; font-size: 0.93rem; }
 .exp-orig { font-size: 0.68rem; color: var(--muted); }
+.exp-warn { font-size: 0.68rem; color: var(--red); font-weight: 700; }
 .del-btn { background: none; border: none; color: #d1ccc8; cursor: pointer; font-size: 1rem; padding: 1px 2px; flex-shrink: 0; }
 .del-btn:active { color: var(--red); }
 .empty { text-align: center; color: var(--muted); font-size: 0.82rem; padding: 20px 0; }
@@ -196,15 +238,28 @@ select {
     <span id="slabel">連線中…</span>
   </div>
   <div style="display:flex;gap:6px;align-items:center">
-    <button id="refresh-btn" onclick="loadData()">↻ 刷新</button>
-    <div class="rate-pill" onclick="toggleRate()">MR→HKD: <span id="rdis">1.93</span> ✎</div>
+    <button id="refresh-btn" onclick="loadData();fetchRates()">↻ 刷新</button>
+    <div class="rate-pill" id="rpill" onclick="toggleRate()">請選擇貨幣 ✎</div>
   </div>
 </div>
 <div id="rate-editor">
-  <label>1 MR =</label>
-  <input type="number" id="rate-input" step="0.001" min="0.1" max="5" value="1.93">
-  <label>HKD</label>
+  <span class="rl" id="rate-label">1 —&nbsp;=</span>
+  <input type="number" id="rate-input" step="0.000001" min="0" placeholder="0.0000">
+  <span class="rl">HKD</span>
   <button id="rate-ok" onclick="applyRate()">確認</button>
+  <button class="rate-alt" onclick="useOnlineRate()">↻ 線上匯率</button>
+  <button class="rate-alt" onclick="openCurModal()">換貨幣</button>
+  <div id="rate-src">—</div>
+</div>
+
+<div id="cur-modal">
+  <div class="cm-box">
+    <h2>選擇旅行貨幣</h2>
+    <p class="sub">揀今次旅行當地用嘅貨幣，匯率會自動上網抓取（相對港幣 HKD）。之後仍然可以手動改匯率。</p>
+    <input type="text" id="cm-search" placeholder="搵貨幣名或代碼，例：日圓、JPY" autocomplete="off" oninput="renderCurList()">
+    <div id="cm-list"></div>
+    <button class="cm-close" onclick="closeCurModal()">取消</button>
+  </div>
 </div>
 
 <main>
@@ -235,16 +290,14 @@ select {
     <div class="g2">
       <div class="fg">
         <label>金額</label>
-        <input type="number" id="amount" min="0" step="0.1" placeholder="0.00" inputmode="decimal">
+        <input type="number" id="amount" min="0" step="0.01" placeholder="0.00" inputmode="decimal">
       </div>
       <div class="fg">
         <label>貨幣</label>
-        <select id="currency">
-          <option value="HKD">💴 港幣 HKD</option>
-          <option value="MR">MR 馬幣 MR</option>
-        </select>
+        <select id="currency" onchange="onCurPick()"></select>
       </div>
     </div>
+    <div class="hint" id="conv-hint"></div>
     <div class="fg">
       <label>消費日期</label>
       <input type="date" id="expdate">
@@ -286,11 +339,79 @@ select {
 <script>
 var API = 'https://script.google.com/macros/s/AKfycbzMfcBcc2EwlqUQczFMhHse8qLuxopYR5JkA4k06sfG6ypg9zM08QpQUUQgD-grugsl6w/exec';
 var CAT_ICON = { '食':'🍜', '交通':'🚌', '住宿':'🏨', '其他':'📦' };
-var exps = [];
-var rate = 1.93;
 
-function fmt(n) { return 'HKD ' + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
-function toHKD(a, c) { return c === 'MR' ? a * rate : a; }
+/* 貨幣清單：代碼 / 中文名 / 旗 */
+var CUR = [
+  ['CNY','人民幣','🇨🇳'], ['TWD','新台幣','🇹🇼'], ['MOP','澳門幣','🇲🇴'],
+  ['JPY','日圓','🇯🇵'], ['KRW','韓圜','🇰🇷'], ['THB','泰銖','🇹🇭'],
+  ['MYR','馬幣（林吉特）','🇲🇾'], ['SGD','新加坡元','🇸🇬'], ['VND','越南盾','🇻🇳'],
+  ['IDR','印尼盧比','🇮🇩'], ['PHP','菲律賓披索','🇵🇭'], ['KHR','柬埔寨瑞爾','🇰🇭'],
+  ['LAK','老撾基普','🇱🇦'], ['MMK','緬甸元','🇲🇲'], ['BND','文萊元','🇧🇳'],
+  ['INR','印度盧比','🇮🇳'], ['NPR','尼泊爾盧比','🇳🇵'], ['LKR','斯里蘭卡盧比','🇱🇰'],
+  ['PKR','巴基斯坦盧比','🇵🇰'], ['BDT','孟加拉塔卡','🇧🇩'], ['MVR','馬爾代夫拉菲亞','🇲🇻'],
+  ['USD','美元','🇺🇸'], ['CAD','加拿大元','🇨🇦'], ['MXN','墨西哥披索','🇲🇽'],
+  ['BRL','巴西雷亞爾','🇧🇷'], ['ARS','阿根廷披索','🇦🇷'], ['CLP','智利披索','🇨🇱'],
+  ['PEN','秘魯索爾','🇵🇪'], ['AUD','澳元','🇦🇺'], ['NZD','紐元','🇳🇿'],
+  ['EUR','歐元','🇪🇺'], ['GBP','英鎊','🇬🇧'], ['CHF','瑞士法郎','🇨🇭'],
+  ['SEK','瑞典克朗','🇸🇪'], ['NOK','挪威克朗','🇳🇴'], ['DKK','丹麥克朗','🇩🇰'],
+  ['ISK','冰島克朗','🇮🇸'], ['CZK','捷克克朗','🇨🇿'], ['PLN','波蘭茲羅提','🇵🇱'],
+  ['HUF','匈牙利福林','🇭🇺'], ['RON','羅馬尼亞列伊','🇷🇴'], ['TRY','土耳其里拉','🇹🇷'],
+  ['RUB','俄羅斯盧布','🇷🇺'], ['UAH','烏克蘭格里夫納','🇺🇦'], ['GEL','格魯吉亞拉里','🇬🇪'],
+  ['KZT','哈薩克堅戈','🇰🇿'], ['MNT','蒙古圖格里克','🇲🇳'], ['AED','阿聯酋迪拉姆','🇦🇪'],
+  ['SAR','沙特里亞爾','🇸🇦'], ['QAR','卡塔爾里亞爾','🇶🇦'], ['ILS','以色列新謝克爾','🇮🇱'],
+  ['EGP','埃及鎊','🇪🇬'], ['ZAR','南非蘭特','🇿🇦'], ['MAD','摩洛哥迪拉姆','🇲🇦'],
+  ['KES','肯尼亞先令','🇰🇪'], ['NGN','尼日利亞奈拉','🇳🇬'], ['FJD','斐濟元','🇫🇯']
+];
+var CUR_NAME = { HKD: '港幣' }, CUR_FLAG = { HKD: '🇭🇰' };
+for (var ci0 = 0; ci0 < CUR.length; ci0++) {
+  CUR_NAME[CUR[ci0][0]] = CUR[ci0][1];
+  CUR_FLAG[CUR[ci0][0]] = CUR[ci0][2];
+}
+var ZERO_DEC = { JPY:1, KRW:1, VND:1, IDR:1, CLP:1, HUF:1, ISK:1, LAK:1, MMK:1, KHR:1, MNT:1 };
+
+var exps = [];
+var rates = { HKD: 1 };      // 1 外幣 = ? HKD（線上）
+var ratesDate = '';          // 線上匯率更新時間
+var ratesSrc = '';           // 匯率來源
+var manual = {};             // 手動覆蓋匯率
+var backendRate = 0;         // Google Sheet 存住嘅匯率（後備）
+var tripCur = '';            // 旅行貨幣
+
+/* ---------- 本地儲存 ---------- */
+function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+try {
+  tripCur = lsGet('tripCur') || '';
+  manual = JSON.parse(lsGet('manualRates') || '{}');
+  var cache = JSON.parse(lsGet('rateCache') || 'null');
+  if (cache && cache.r) { rates = cache.r; ratesDate = cache.d || ''; ratesSrc = cache.s || '快取'; }
+} catch (e) { manual = {}; }
+
+/* ---------- 工具 ---------- */
+function fmt(n) { return 'HKD ' + (isFinite(n) ? n : 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+function dec(c) { return ZERO_DEC[c] ? 0 : 2; }
+function fmtOrig(a, c) { return c + ' ' + a.toFixed(dec(c)).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+function normCur(c) {
+  c = String(c || 'HKD').toUpperCase().trim();
+  if (c === 'MR' || c === 'RM' || c === 'MYR') return 'MYR';
+  if (c === 'NT' || c === 'NTD') return 'TWD';
+  if (c === 'RMB') return 'CNY';
+  if (c === 'HK' || c === '$') return 'HKD';
+  return c;
+}
+function rateOf(c) {
+  c = normCur(c);
+  if (c === 'HKD') return 1;
+  if (manual[c] > 0) return manual[c];
+  if (rates[c] > 0) return rates[c];
+  if (c === tripCur && backendRate > 0) return backendRate;
+  return 0;
+}
+function toHKD(a, c) {
+  a = parseFloat(a) || 0;
+  var r = rateOf(c);
+  return r > 0 ? a * r : 0;
+}
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function nowStr() {
   var d = new Date();
@@ -298,13 +419,11 @@ function nowStr() {
 }
 function todayStr() {
   var d = new Date();
-  var m = (d.getMonth()+1).toString().padStart(2,'0');
-  var day = d.getDate().toString().padStart(2,'0');
-  return d.getFullYear() + '-' + m + '-' + day;
+  return d.getFullYear() + '-' + (d.getMonth()+1).toString().padStart(2,'0') + '-' + d.getDate().toString().padStart(2,'0');
 }
 function fmtDateDisplay(iso) {
   if (!iso) return '';
-  var p = iso.split('-');
+  var p = String(iso).split('-');
   if (p.length !== 3) return iso;
   return p[0] + '年' + p[1] + '月' + p[2] + '日';
 }
@@ -313,27 +432,162 @@ function setStatus(type, msg) {
   document.getElementById('slabel').textContent = msg;
 }
 
+/* ---------- 貨幣選擇 ---------- */
+function openCurModal() {
+  document.getElementById('cur-modal').classList.add('open');
+  document.getElementById('cm-search').value = '';
+  renderCurList();
+}
+function closeCurModal() {
+  if (!tripCur) { alert('請先揀一個旅行貨幣（如果今次只用港幣，揀邊個都唔影響港幣記錄）。'); return; }
+  document.getElementById('cur-modal').classList.remove('open');
+}
+function renderCurList() {
+  var q = document.getElementById('cm-search').value.trim().toUpperCase();
+  var html = '';
+  for (var i = 0; i < CUR.length; i++) {
+    var code = CUR[i][0], name = CUR[i][1], flag = CUR[i][2];
+    if (q && code.indexOf(q) < 0 && name.indexOf(q) < 0) continue;
+    var r = rateOf(code);
+    var rt = r > 0 ? ('1 = ' + r.toFixed(r < 0.01 ? 6 : 4) + ' HKD') : '匯率待抓取';
+    html += '<button class="cm-row' + (code === tripCur ? ' sel' : '') + '" onclick="pickTripCur(\'' + code + '\')">'
+      + '<span class="fl">' + flag + '</span>'
+      + '<span class="nm">' + name + '</span>'
+      + '<span class="cd">' + code + '</span>'
+      + '<span class="rt">' + rt + '</span>'
+      + '</button>';
+  }
+  document.getElementById('cm-list').innerHTML = html || '<div class="empty">搵唔到呢個貨幣</div>';
+}
+function pickTripCur(code) {
+  tripCur = code;
+  lsSet('tripCur', code);
+  document.getElementById('cur-modal').classList.remove('open');
+  buildCurSelect();
+  updateRatePill();
+  render();
+  if (!(rates[code] > 0)) fetchRates();
+}
+function buildCurSelect() {
+  var sel = document.getElementById('currency');
+  var html = '<option value="HKD">🇭🇰 港幣 HKD</option>';
+  if (tripCur) {
+    html += '<option value="' + tripCur + '">' + CUR_FLAG[tripCur] + ' ' + CUR_NAME[tripCur] + ' ' + tripCur + '</option>';
+  }
+  html += '<optgroup label="其他貨幣">';
+  for (var i = 0; i < CUR.length; i++) {
+    if (CUR[i][0] === tripCur) continue;
+    html += '<option value="' + CUR[i][0] + '">' + CUR[i][2] + ' ' + CUR[i][1] + ' ' + CUR[i][0] + '</option>';
+  }
+  html += '</optgroup>';
+  sel.innerHTML = html;
+  sel.value = tripCur || 'HKD';
+  onCurPick();
+}
+function onCurPick() {
+  var c = document.getElementById('currency').value;
+  var h = document.getElementById('conv-hint');
+  if (!c || c === 'HKD') { h.innerHTML = ''; return; }
+  var r = rateOf(c);
+  if (r > 0) {
+    h.innerHTML = '1 ' + c + ' ≈ <b>' + r.toFixed(r < 0.01 ? 6 : 4) + ' HKD</b>'
+      + (manual[c] > 0 ? '（手動匯率）' : (ratesDate ? '（線上 ' + esc(ratesDate) + '）' : ''));
+  } else {
+    h.innerHTML = '<b>⚠ 未有 ' + c + ' 匯率</b>，撳上面匯率條手動輸入，或撳刷新。';
+  }
+}
+
+/* ---------- 匯率 ---------- */
+function updateRatePill() {
+  var pill = document.getElementById('rpill');
+  if (!tripCur) { pill.innerHTML = '請選擇貨幣 ✎'; return; }
+  var r = rateOf(tripCur);
+  pill.innerHTML = tripCur + '→HKD: <span>' + (r > 0 ? r.toFixed(r < 0.01 ? 6 : 4) : '—') + '</span>'
+    + (manual[tripCur] > 0 ? ' ✋' : '') + ' ✎';
+  document.getElementById('rate-label').innerHTML = '1 ' + tripCur + '&nbsp;=';
+  var src = document.getElementById('rate-src');
+  if (manual[tripCur] > 0) {
+    src.textContent = '現用手動匯率 · 線上為 ' + (rates[tripCur] > 0 ? rates[tripCur].toFixed(4) : '—');
+  } else if (ratesSrc) {
+    src.textContent = '線上匯率來源：' + ratesSrc + (ratesDate ? ' · ' + ratesDate : '');
+  } else {
+    src.textContent = '尚未抓到線上匯率';
+  }
+  onCurPick();
+}
+
+function fetchRates(cb) {
+  setStatus('spin', '抓取匯率…');
+  fetch('https://open.er-api.com/v6/latest/HKD')
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (!d || !d.rates) throw new Error('bad');
+      applyFetched(d.rates, 'open.er-api.com', (d.time_last_update_utc || '').slice(5, 16));
+      setStatus('ok', '匯率已更新 · ' + nowStr());
+      if (cb) cb(true);
+    })
+    .catch(function() {
+      fetch('https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/hkd.json')
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (!d || !d.hkd) throw new Error('bad');
+          var up = {};
+          for (var k in d.hkd) up[k.toUpperCase()] = d.hkd[k];
+          applyFetched(up, 'currency-api', d.date || '');
+          setStatus('ok', '匯率已更新 · ' + nowStr());
+          if (cb) cb(true);
+        })
+        .catch(function() {
+          setStatus('err', '匯率抓取失敗，可手動輸入');
+          updateRatePill();
+          if (cb) cb(false);
+        });
+    });
+}
+function applyFetched(src, srcName, date) {
+  var out = { HKD: 1 };
+  for (var k in src) {
+    var v = parseFloat(src[k]);
+    if (v > 0) out[k] = 1 / v;       // 來源：1 HKD = v 外幣 → 1 外幣 = 1/v HKD
+  }
+  rates = out; ratesSrc = srcName; ratesDate = date;
+  lsSet('rateCache', JSON.stringify({ r: rates, d: ratesDate, s: ratesSrc, t: Date.now() }));
+  updateRatePill();
+  if (document.getElementById('cur-modal').classList.contains('open')) renderCurList();
+  render();
+}
+
 function toggleRate() {
+  if (!tripCur) { openCurModal(); return; }
   var ed = document.getElementById('rate-editor');
   ed.style.display = ed.style.display === 'flex' ? 'none' : 'flex';
-  document.getElementById('rate-input').value = rate.toFixed(4);
+  var r = rateOf(tripCur);
+  document.getElementById('rate-input').value = r > 0 ? r.toFixed(6) : '';
+  updateRatePill();
 }
 function applyRate() {
   var v = parseFloat(document.getElementById('rate-input').value);
   if (!v || v <= 0) { alert('請輸入有效匯率'); return; }
-  rate = v;
-  document.getElementById('rdis').textContent = rate.toFixed(4);
+  manual[tripCur] = v;
+  lsSet('manualRates', JSON.stringify(manual));
   document.getElementById('rate-editor').style.display = 'none';
+  updateRatePill();
+  render();
   setStatus('spin', '儲存匯率…');
-  fetch(API, {
-    method: 'POST',
-    body: JSON.stringify({ action: 'setRate', rate: rate })
-  })
-  .then(function(r){ return r.json(); })
-  .then(function(){ setStatus('ok', '匯率已更新 · ' + nowStr()); render(); })
-  .catch(function(){ setStatus('err', '匯率儲存失敗'); render(); });
+  fetch(API, { method: 'POST', body: JSON.stringify({ action: 'setRate', rate: v, currency: tripCur }) })
+    .then(function(r) { return r.json(); })
+    .then(function() { setStatus('ok', '匯率已更新 · ' + nowStr()); })
+    .catch(function() { setStatus('err', '匯率未同步到雲端（本機已套用）'); });
+}
+function useOnlineRate() {
+  delete manual[tripCur];
+  lsSet('manualRates', JSON.stringify(manual));
+  updateRatePill();
+  render();
+  fetchRates();
 }
 
+/* ---------- 資料 ---------- */
 function loadData() {
   setStatus('spin', '同步中…');
   fetch(API + '?action=load')
@@ -341,12 +595,9 @@ function loadData() {
     .then(function(data) {
       if (data.error) throw new Error(data.error);
       exps = data.exps || [];
-      if (data.rate && parseFloat(data.rate) > 0) {
-        rate = parseFloat(data.rate);
-        document.getElementById('rdis').textContent = rate.toFixed(4);
-        document.getElementById('rate-input').value = rate.toFixed(4);
-      }
+      if (data.rate && parseFloat(data.rate) > 0) backendRate = parseFloat(data.rate);
       setStatus('ok', '已同步 · ' + nowStr());
+      updateRatePill();
       render();
     })
     .catch(function(e) {
@@ -359,12 +610,15 @@ function loadData() {
 function addExp() {
   var desc = document.getElementById('desc').value.trim();
   var amt  = parseFloat(document.getElementById('amount').value);
-  var cur  = document.getElementById('currency').value;
+  var cur  = normCur(document.getElementById('currency').value);
   var pay  = document.getElementById('payer').value;
   var cat  = document.getElementById('category').value;
   var edate = document.getElementById('expdate').value || todayStr();
   if (!desc) { alert('請填寫項目名稱'); return; }
   if (!amt || amt <= 0) { alert('請填寫有效金額'); return; }
+  if (cur !== 'HKD' && rateOf(cur) <= 0) {
+    if (!confirm('暫時未有 ' + cur + ' 匯率，呢筆支出會先當 HKD 0 計。仍然加入？')) return;
+  }
 
   var newExp = {
     id: Date.now(), desc: desc, category: cat,
@@ -406,15 +660,13 @@ function delExp(id) {
   exps = exps.filter(function(e) { return String(e.id) !== String(id); });
   render();
   setStatus('spin', '刪除中…');
-  fetch(API, {
-    method: 'POST',
-    body: JSON.stringify({ action: 'delete', id: id })
-  })
-  .then(function(r) { return r.json(); })
-  .then(function() { setStatus('ok', '已刪除 · ' + nowStr()); })
-  .catch(function() { setStatus('err', '刪除失敗，請刷新'); loadData(); });
+  fetch(API, { method: 'POST', body: JSON.stringify({ action: 'delete', id: id }) })
+    .then(function(r) { return r.json(); })
+    .then(function() { setStatus('ok', '已刪除 · ' + nowStr()); })
+    .catch(function() { setStatus('err', '刪除失敗，請刷新'); loadData(); });
 }
 
+/* ---------- 顯示 ---------- */
 function render() {
   var list = document.getElementById('list');
   if (!exps || exps.length === 0) {
@@ -426,23 +678,26 @@ function render() {
   var html = '';
   for (var i = 0; i < sorted.length; i++) {
     var e = sorted[i];
-    var hkd = toHKD(parseFloat(e.amount), e.currency);
+    var cur = normCur(e.currency);
+    var amt = parseFloat(e.amount) || 0;
+    var hkd = toHKD(amt, cur);
+    var noRate = cur !== 'HKD' && rateOf(cur) <= 0;
     var tCls = e.payer === 'Patrick' ? 'tp' : 'tk';
     var icon = CAT_ICON[e.category] || '📦';
-    var origLine = e.currency === 'MR'
-      ? '<div class="exp-orig">MR ' + parseFloat(e.amount).toFixed(2) + ' → ' + fmt(hkd) + '</div>' : '';
-    var dispAmt = e.currency === 'HKD' ? fmt(parseFloat(e.amount)) : fmt(hkd);
+    var subLine = cur === 'HKD' ? ''
+      : (noRate ? '<div class="exp-warn">' + fmtOrig(amt, cur) + ' · 無匯率</div>'
+                : '<div class="exp-orig">' + fmtOrig(amt, cur) + ' → ' + fmt(hkd) + '</div>');
     var dateTag = e.expenseDate ? '<span class="date-tag">📅 ' + fmtDateDisplay(e.expenseDate) + '</span>' : '';
     html += '<li class="exp-item">'
       + '<div class="exp-cat-badge">' + icon + '</div>'
       + '<div class="exp-body">'
       + '<div class="exp-desc">' + esc(e.desc) + '</div>'
       + '<div class="exp-meta">'
-      + '<span class="tag ' + tCls + '">' + e.payer + '</span>'
+      + '<span class="tag ' + tCls + '">' + esc(e.payer) + '</span>'
       + '<span class="cat-tag">' + esc(e.category) + '</span>'
       + dateTag
       + '</div></div>'
-      + '<div class="exp-right"><div class="exp-amount">' + dispAmt + '</div>' + origLine + '</div>'
+      + '<div class="exp-right"><div class="exp-amount">' + fmt(hkd) + '</div>' + subLine + '</div>'
       + '<button class="del-btn" onclick="delExp(' + e.id + ')">✕</button>'
       + '</li>';
   }
@@ -455,7 +710,7 @@ function recalc() {
   var pp = 0, kp = 0, cats = {};
   for (var i = 0; i < exps.length; i++) {
     var e = exps[i];
-    var h = toHKD(parseFloat(e.amount), e.currency);
+    var h = toHKD(e.amount, e.currency);
     if (e.payer === 'Patrick') pp += h; else kp += h;
     var cat = e.category || '其他';
     cats[cat] = (cats[cat] || 0) + h;
@@ -464,10 +719,10 @@ function recalc() {
 
   document.getElementById('ttl').textContent      = fmt(total);
   document.getElementById('shareVal').textContent = fmt(share);
-  document.getElementById('pp').textContent        = fmt(pp);
-  document.getElementById('kp').textContent        = fmt(kp);
-  document.getElementById('ps').textContent        = fmt(share);
-  document.getElementById('ks').textContent        = fmt(share);
+  document.getElementById('pp').textContent       = fmt(pp);
+  document.getElementById('kp').textContent       = fmt(kp);
+  document.getElementById('ps').textContent       = fmt(share);
+  document.getElementById('ks').textContent       = fmt(share);
 
   var catOrder = ['食','交通','住宿','其他'], catHtml = '';
   for (var ci = 0; ci < catOrder.length; ci++) {
@@ -499,11 +754,13 @@ function recalc() {
   var rows = '';
   for (var j = 0; j < exps.length; j++) {
     var e2 = exps[j];
-    var h2 = toHKD(parseFloat(e2.amount), e2.currency);
-    var orig2 = e2.currency === 'MR' ? ' (MR ' + parseFloat(e2.amount).toFixed(2) + ')' : '';
+    var c2 = normCur(e2.currency);
+    var a2 = parseFloat(e2.amount) || 0;
+    var h2 = toHKD(a2, c2);
+    var orig2 = c2 === 'HKD' ? '' : ' (' + fmtOrig(a2, c2) + ')';
     var dcol2 = e2.expenseDate ? fmtDateDisplay(e2.expenseDate) : '';
     rows += '<tr><td>' + (CAT_ICON[e2.category]||'📦') + ' ' + esc(e2.desc) + (dcol2 ? ' <span style="color:var(--muted);font-weight:400">(' + dcol2 + ')</span>' : '') + '</td>'
-      + '<td><span class="tag '+(e2.payer==='Patrick'?'tp':'tk')+'">' + e2.payer + '</span></td>'
+      + '<td><span class="tag '+(e2.payer==='Patrick'?'tp':'tk')+'">' + esc(e2.payer) + '</span></td>'
       + '<td>' + fmt(h2) + orig2 + '</td></tr>';
   }
   rows += '<tr class="tot"><td colspan="2">總計</td><td>' + fmt(total) + '</td></tr>';
@@ -516,10 +773,15 @@ function toggleBk() {
   tog.textContent = bk.classList.contains('open') ? '▾ 隱藏明細' : '▸ 查看明細';
 }
 
-// Init
+/* ---------- 初始化 ---------- */
 document.getElementById('expdate').value = todayStr();
+buildCurSelect();
+updateRatePill();
+if (!tripCur) openCurModal();
+fetchRates();
 loadData();
 setInterval(loadData, 10000);
+setInterval(function() { fetchRates(); }, 30 * 60 * 1000);
 </script>
 </body>
 </html>
