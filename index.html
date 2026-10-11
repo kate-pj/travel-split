@@ -361,13 +361,13 @@ select {
       <label>Apps Script Web app 網址</label>
       <input type="url" id="api-url" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off" spellcheck="false">
     </div>
-    <div class="hint" style="margin:-4px 0 10px">呢條網址等同你個賬本嘅鎖匙，所以唔會寫入網站原始碼，亦唔會分享出去。每部裝置輸入一次就會記住。</div>
+    <div class="hint" style="margin:-4px 0 10px">呢條網址等同你個賬本嘅鎖匙，唔會寫入網站原始碼。每部裝置輸入一次就會記住。</div>
     <button class="add-btn" onclick="saveApi()">儲存同步網址</button>
   </div>
 
   <div class="card" id="fpscard">
     <div class="card-title">FPS 收款資料</div>
-    <div class="hint" style="margin:-8px 0 12px">填好之後，結算區會出現一個掣，撳咗先會產生「俾對方」嘅 FPS 收款碼。資料只存喺你部手機／電腦（localStorage），唔會上傳去 Google Sheet。</div>
+    <div class="hint" style="margin:-8px 0 12px">填好之後，要先撳咗結算區個掣，先會產生「俾對方」嘅 FPS 收款碼。資料只存喺你部手機／電腦。</div>
     <div class="g2">
       <div class="fg">
         <label>Patrick 收款方式</label>
