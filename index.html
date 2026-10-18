@@ -165,6 +165,8 @@ select {
 .tp { background: #dcfce7; color: var(--patrick); }
 .tk { background: #ffedd5; color: var(--kate); }
 .cat-tag { font-size: 0.62rem; color: var(--muted); background: var(--cream); padding: 1px 6px; border-radius: 20px; font-weight: 600; }
+/* 代付：唔係公數，一眼要分得出 */
+.split-tag { background: #ede9fe; color: #6d28d9; border: 1px solid #ddd6fe; }
 .date-tag { font-size: 0.62rem; color: var(--muted); font-weight: 600; }
 .exp-right { text-align: right; flex-shrink: 0; }
 .exp-amount { font-weight: 800; font-size: 0.93rem; }
@@ -248,7 +250,8 @@ select {
 
 <header>
   <h1>✈️ 旅行分賬</h1>
-  <p>Patrick &amp; Kate · 港幣結算</p>
+  <!-- 版本號：靜態網站冇辦法強制更新，兩部機要對得上先好信個結算數字 -->
+  <p>Patrick &amp; Kate · 港幣結算 · <span id="appver">v2</span></p>
 </header>
 
 <div id="sync-bar">
@@ -300,7 +303,7 @@ select {
       </div>
       <div class="fg">
         <label>付款人</label>
-        <select id="payer">
+        <select id="payer" onchange="onSplitPick()">
           <option value="Patrick">Patrick</option>
           <option value="Kate">Kate</option>
         </select>
@@ -309,7 +312,7 @@ select {
     <div class="g2">
       <div class="fg">
         <label>金額</label>
-        <input type="number" id="amount" min="0" step="0.01" placeholder="0.00" inputmode="decimal">
+        <input type="number" id="amount" min="0" step="0.01" placeholder="0.00" inputmode="decimal" oninput="onSplitPick()">
       </div>
       <div class="fg">
         <label>貨幣</label>
@@ -317,10 +320,20 @@ select {
       </div>
     </div>
     <div class="hint" id="conv-hint"></div>
-    <div class="fg">
-      <label>消費日期</label>
-      <input type="date" id="expdate">
+    <div class="g2">
+      <div class="fg">
+        <label>分賬方式</label>
+        <select id="split" onchange="onSplitPick()">
+          <option value="even">🤝 均分（公數）</option>
+          <option value="other">➡️ 代對方俾</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label>消費日期</label>
+        <input type="date" id="expdate">
+      </div>
     </div>
+    <div class="hint" id="split-hint"></div>
     <button class="add-btn" id="add-btn" onclick="addExp()">＋ 加入支出</button>
   </div>
 
@@ -333,7 +346,7 @@ select {
     <div class="card-title">結算總覽</div>
     <div class="total-bar">
       <div><div class="lbl">總支出</div><div class="val" id="ttl">HKD 0.00</div></div>
-      <div style="text-align:right"><div class="lbl">各人份額</div><div class="val" id="shareVal">HKD 0.00</div></div>
+      <div style="text-align:right"><div class="lbl">公數（均分部分）</div><div class="val" id="shareVal">HKD 0.00</div></div>
     </div>
     <div class="pgrid">
       <div class="pcard pp">
@@ -576,6 +589,21 @@ function onCurPick() {
   } else {
     h.innerHTML = '<b>⚠ 未有 ' + c + ' 匯率</b>，撳上面匯率條手動輸入，或撳刷新。';
   }
+  onSplitPick();
+}
+
+/* 揀咗「代對方俾」就講清楚邊個全數承擔幾多。
+   入錯方向等於計錯錢，所以寧願囉嗦。 */
+function onSplitPick() {
+  var h = document.getElementById('split-hint');
+  if (!h) return;
+  if (document.getElementById('split').value !== 'other') { h.innerHTML = ''; return; }
+  var payer = document.getElementById('payer').value;
+  var other = payer === 'Patrick' ? 'Kate' : 'Patrick';
+  var amt = parseFloat(document.getElementById('amount').value);
+  var hkd = amt > 0 ? toHKD(amt, normCur(document.getElementById('currency').value)) : 0;
+  h.innerHTML = '➡️ 呢筆唔會均分：<b>' + esc(other) + ' 全數承擔'
+    + (hkd > 0 ? ' ' + fmt(hkd) : '') + '</b>（' + esc(payer) + ' 代佢俾）';
 }
 
 /* ---------- 匯率 ---------- */
@@ -873,6 +901,7 @@ function addExp() {
   var pay  = document.getElementById('payer').value;
   var cat  = document.getElementById('category').value;
   var edate = document.getElementById('expdate').value || todayStr();
+  var spl  = document.getElementById('split').value === 'other' ? 'other' : 'even';
   if (!apiReady()) { alert('未設定同步網址，支出會存唔到。\n請去最底「資料同步設定」填好先。'); return; }
   if (!desc) { alert('請填寫項目名稱'); return; }
   if (!amt || amt <= 0) { alert('請填寫有效金額'); return; }
@@ -883,13 +912,15 @@ function addExp() {
   var newExp = {
     id: Date.now(), desc: desc, category: cat,
     payer: pay, amount: amt, currency: cur,
-    expenseDate: edate,
+    expenseDate: edate, split: spl,
     timestamp: new Date().toISOString()
   };
 
   exps.push(newExp);
   document.getElementById('desc').value = '';
   document.getElementById('amount').value = '';
+  document.getElementById('split').value = 'even';   // 每次都重設返均分，避免接住落去入錯
+  onSplitPick();
   render();
 
   var btn = document.getElementById('add-btn');
@@ -899,7 +930,7 @@ function addExp() {
 
   fetch(API, {
     method: 'POST',
-    body: JSON.stringify({ action: 'add', id: newExp.id, desc: newExp.desc, category: newExp.category, payer: newExp.payer, amount: newExp.amount, currency: newExp.currency, expenseDate: newExp.expenseDate, timestamp: newExp.timestamp })
+    body: JSON.stringify({ action: 'add', id: newExp.id, desc: newExp.desc, category: newExp.category, payer: newExp.payer, amount: newExp.amount, currency: newExp.currency, expenseDate: newExp.expenseDate, timestamp: newExp.timestamp, split: newExp.split })
   })
   .then(function(r) { return r.json(); })
   .then(function(data) {
@@ -949,6 +980,8 @@ function render() {
       : (noRate ? '<div class="exp-warn">' + fmtOrig(amt, cur) + ' · 無匯率</div>'
                 : '<div class="exp-orig">' + fmtOrig(amt, cur) + ' → ' + fmt(hkd) + '</div>');
     var dateTag = e.expenseDate ? '<span class="date-tag">📅 ' + fmtDateDisplay(e.expenseDate) + '</span>' : '';
+    var splitTag = splitMode(e) === 'other'
+      ? '<span class="tag split-tag">代付 · ' + (e.payer === 'Patrick' ? 'Kate' : 'Patrick') + ' 全數</span>' : '';
     html += '<li class="exp-item">'
       + '<div class="exp-cat-badge">' + icon + '</div>'
       + '<div class="exp-body">'
@@ -956,6 +989,7 @@ function render() {
       + '<div class="exp-meta">'
       + '<span class="tag ' + tCls + '">' + esc(e.payer) + '</span>'
       + '<span class="cat-tag">' + esc(e.category) + '</span>'
+      + splitTag
       + dateTag
       + '</div></div>'
       + '<div class="exp-right"><div class="exp-amount">' + fmt(hkd) + '</div>' + subLine + '</div>'
@@ -972,23 +1006,43 @@ function render() {
   recalc();
 }
 
+/* 「邊個俾咗錢」同「邊個應該承擔」係兩件事，要分開計。
+   even  = 均分，兩人各一半
+   other = 代對方俾，付款人以外嗰個全數承擔
+   舊記錄冇 split 欄位，一律當 even。 */
+function splitMode(e) { return (e && e.split) === 'other' ? 'other' : 'even'; }
+
+function shareOf(e) {
+  var h = toHKD(e.amount, e.currency);
+  if (splitMode(e) === 'other') {
+    return e.payer === 'Patrick' ? { P: 0, K: h } : { P: h, K: 0 };
+  }
+  return { P: h / 2, K: h / 2 };
+}
+
 function recalc() {
-  var pp = 0, kp = 0, cats = {};
+  var pp = 0, kp = 0, shareP = 0, shareK = 0, sharedTotal = 0, cats = {};
   for (var i = 0; i < exps.length; i++) {
     var e = exps[i];
     var h = toHKD(e.amount, e.currency);
     if (e.payer === 'Patrick') pp += h; else kp += h;
+    var s = shareOf(e);
+    shareP += s.P; shareK += s.K;
+    if (splitMode(e) === 'even') sharedTotal += h;
     var cat = e.category || '其他';
     cats[cat] = (cats[cat] || 0) + h;
   }
-  var total = pp + kp, share = total / 2, diff = pp - kp;
+  var total = pp + kp;
+  /* 淨額：俾咗幾多 減 應該承擔幾多。netP 同 netK 永遠相加等於 0。
+     全部都係 even 嘅時候，netP = (pp - kp) / 2，同舊公式一致。 */
+  var netP = pp - shareP;
 
   document.getElementById('ttl').textContent      = fmt(total);
-  document.getElementById('shareVal').textContent = fmt(share);
+  document.getElementById('shareVal').textContent = fmt(sharedTotal);
   document.getElementById('pp').textContent       = fmt(pp);
   document.getElementById('kp').textContent       = fmt(kp);
-  document.getElementById('ps').textContent       = fmt(share);
-  document.getElementById('ks').textContent       = fmt(share);
+  document.getElementById('ps').textContent       = fmt(shareP);
+  document.getElementById('ks').textContent       = fmt(shareK);
 
   var catOrder = ['食','交通','住宿','其他'], catHtml = '';
   for (var ci = 0; ci < catOrder.length; ci++) {
@@ -1007,7 +1061,7 @@ function recalc() {
      所以用 data-key 比對，冇變就唔重畫 —— 否則已經產生咗嘅收款碼
      會每 10 秒閃一次，亦會無端端重新產生。 */
   var sbox = document.getElementById('sbox');
-  if (Math.abs(diff) < 0.5) {
+  if (Math.abs(netP) < 0.5) {
     fpsPending = null;
     fpsShownFor = null;
     if (sbox.getAttribute('data-key') !== 'ok') {
@@ -1016,9 +1070,9 @@ function recalc() {
       sbox.setAttribute('data-key', 'ok');
     }
   } else {
-    var debtor = diff > 0 ? 'Kate' : 'Patrick';
-    var creditor = diff > 0 ? 'Patrick' : 'Kate';
-    var owed = Math.abs(diff) / 2;
+    var debtor = netP > 0 ? 'Kate' : 'Patrick';
+    var creditor = netP > 0 ? 'Patrick' : 'Kate';
+    var owed = Math.abs(netP);
     var key = creditor + '|' + owed.toFixed(2);
     fpsPending = { payee: creditor, amount: owed, key: key };
     if (sbox.getAttribute('data-key') !== key) {
@@ -1043,7 +1097,9 @@ function recalc() {
     var h2 = toHKD(a2, c2);
     var orig2 = c2 === 'HKD' ? '' : ' (' + fmtOrig(a2, c2) + ')';
     var dcol2 = e2.expenseDate ? fmtDateDisplay(e2.expenseDate) : '';
-    rows += '<tr><td>' + (CAT_ICON[e2.category]||'📦') + ' ' + esc(e2.desc) + (dcol2 ? ' <span style="color:var(--muted);font-weight:400">(' + dcol2 + ')</span>' : '') + '</td>'
+    var sp2 = splitMode(e2) === 'other'
+      ? ' <span class="tag split-tag">代付</span>' : '';
+    rows += '<tr><td>' + (CAT_ICON[e2.category]||'📦') + ' ' + esc(e2.desc) + sp2 + (dcol2 ? ' <span style="color:var(--muted);font-weight:400">(' + dcol2 + ')</span>' : '') + '</td>'
       + '<td><span class="tag '+(e2.payer==='Patrick'?'tp':'tk')+'">' + esc(e2.payer) + '</span></td>'
       + '<td>' + fmt(h2) + orig2 + '</td></tr>';
   }
@@ -1059,6 +1115,7 @@ function toggleBk() {
 
 /* ---------- 初始化 ---------- */
 document.getElementById('expdate').value = todayStr();
+onSplitPick();
 loadApiForm();
 loadFpsForm();
 buildCurSelect();
